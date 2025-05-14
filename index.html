@@ -27,6 +27,9 @@
             border: 1px solid #ddd;
             padding: 20px;
             min-height: 300px;
+            position: relative;
+            overflow: auto;
+            /* 添加滚动功能 */
         }
 
         .controls {
@@ -65,8 +68,21 @@
             font-family: monospace;
             margin-bottom: 10px;
         }
-        .text-align-controls{
+
+        .text-align-controls {
             margin-top: 20px;
+        }
+
+        .copy-btn {
+            position: absolute;
+            right: 20px;
+            top: 10px;
+        }
+
+        .checkbox-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
         }
     </style>
 </head>
@@ -75,42 +91,53 @@
     <div class="container">
         <div class="header">
             <h1>HTML样式清除工具</h1>
-            <div class="controls">
-                <div class="global-actions">
-                    <button id="undoBtn">撤销</button>
-                    <button id="redoBtn">前进</button>
+            <div>
+                <button id="undoBtn">撤销</button>
+                <button id="redoBtn">前进</button>
+            </div>
+        </div>
+
+        <div class="controls">
+            <div class="global-actions">
+                <div class="checkbox-group">
                     <label><input type="checkbox" id="globalRemoveClass" checked> 全局移除class</label>
                     <label><input type="checkbox" id="globalRemoveStyle" checked> 全局移除style</label>
-                    <label><input type="checkbox" id="removeBorder" checked> 移除表格边框</label>
+                    <label><input type="checkbox" id="removeBorder"> 移除表格边框</label>
                     <label><input type="checkbox" id="removeTableWidth" checked> 移除表格宽度限制</label>
-                    <label><input type="checkbox" id="globalRemoveTable" checked> 全局移除表格</label>
+                    <label><input type="checkbox" id="globalRemoveTable"> 全局移除表格</label>
                     <label><input type="checkbox" id="preserveContent" checked> 保留内容结构</label>
+                </div>
+                <div style="margin-top: 10px;">
                     <label>指定标签<input type="text" value="ol,li" id="targetTags" placeholder="输入标签名称(用逗号分隔)"
                             style="padding: 4px; border: 1px solid #ddd; border-radius: 4px;"></label>
                 </div>
-                <div class="element-actions" style="display: none;">
-                    <button id="deleteTable">删除表格</button>
-                    <button id="convertToElement">转换元素</button>
-                    <button id="clearStyles">清除样式</button>
-                    <button id="deleteElement">删除元素</button>
-                    <div class="element-style-controls">
-                        <label><input type="checkbox" id="removeClass" checked> 移除class</label>
-                        <label><input type="checkbox" id="removeStyle" checked> 移除style</label>
-                        <label><input type="checkbox" id="removeElementBorder" checked> 移除表格边框</label>
-                        <label><input type="checkbox" id="removeElementWidth" checked> 移除表格宽度限制</label>
-                    </div>
-                    <div class="text-align-controls">
-                        <button id="alignLeft">左对齐</button>
-                        <button id="alignCenter">居中</button>
-                        <button id="alignRight">右对齐</button>
-                    </div>
-                </div>
             </div>
         </div>
+
+        <div class="element-actions" style="display: none; margin-top: 10px;">
+            <button id="deleteTable">删除表格</button>
+            <button id="convertToElement">转换元素</button>
+            <button id="clearStyles">清除样式</button>
+            <button id="deleteElement">删除元素</button>
+            <div class="element-style-controls">
+                <label><input type="checkbox" id="removeClass" checked> 移除class</label>
+                <label><input type="checkbox" id="removeStyle" checked> 移除style</label>
+                <label><input type="checkbox" id="removeElementBorder"> 移除表格边框</label>
+                <label><input type="checkbox" id="removeElementWidth" checked> 移除表格宽度限制</label>
+            </div>
+            <div class="text-align-controls">
+                <button id="alignLeft">左对齐</button>
+                <button id="alignCenter">居中</button>
+                <button id="alignRight">右对齐</button>
+            </div>
+        </div>
+
         <div class="input-section">
             <textarea id="htmlInput" placeholder="在此输入HTML代码..."></textarea>
         </div>
+
         <div class="preview-section" id="previewContainer">
+            <button id="copyBtn" class="copy-btn">复制预览内容</button>
         </div>
     </div>
     <script src="script.js"></script>
