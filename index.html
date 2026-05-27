@@ -23,6 +23,22 @@
             margin-bottom: 20px;
         }
 
+        .output-section {
+            margin-bottom: 20px;
+        }
+
+        .output-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .output-header h2 {
+            font-size: 18px;
+            margin: 0;
+        }
+
         .preview-section {
             border: 1px solid #ddd;
             padding: 20px;
@@ -79,6 +95,11 @@
             top: 10px;
         }
 
+        .selected-highlight {
+            outline: 2px solid #007bff;
+            background-color: rgba(0, 123, 255, 0.1);
+        }
+
         .checkbox-group {
             display: flex;
             flex-wrap: wrap;
@@ -104,6 +125,7 @@
                     <label><input type="checkbox" id="globalRemoveStyle" checked> 全局移除style</label>
                     <label><input type="checkbox" id="removeBorder"> 移除表格边框</label>
                     <label><input type="checkbox" id="removeTableWidth" checked> 移除表格宽度限制</label>
+                    <label><input type="checkbox" id="removeEmptyElements"> 移除空元素</label>
                     <label><input type="checkbox" id="globalRemoveTable"> 全局移除表格</label>
                     <label><input type="checkbox" id="preserveContent" checked> 保留内容结构</label>
                 </div>
@@ -134,6 +156,14 @@
 
         <div class="input-section">
             <textarea id="htmlInput" placeholder="在此输入HTML代码..."></textarea>
+        </div>
+
+        <div class="output-section">
+            <div class="output-header">
+                <h2>修改后的HTML</h2>
+                <button id="copyOutputBtn">复制修改后的HTML</button>
+            </div>
+            <textarea id="htmlOutput" placeholder="处理后的HTML会显示在这里..."></textarea>
         </div>
 
         <div class="preview-section" id="previewContainer">

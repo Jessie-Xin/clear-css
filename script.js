@@ -1,11 +1,13 @@
 document.addEventListener("DOMContentLoaded", function () {
     // DOM元素获取
     const htmlInput = document.getElementById("htmlInput");
+    const htmlOutput = document.getElementById("htmlOutput");
     const previewContainer = document.getElementById("previewContainer");
     const targetTags = document.getElementById("targetTags");
     const preserveContent = document.getElementById("preserveContent");
     const elementActions = document.querySelector(".element-actions");
     const copyBtn = document.getElementById("copyBtn");
+    const copyOutputBtn = document.getElementById("copyOutputBtn");
 
     // 按钮元素
     const undoBtn = document.getElementById("undoBtn");
@@ -25,6 +27,7 @@ document.addEventListener("DOMContentLoaded", function () {
     const removeElementBorder = document.getElementById("removeElementBorder");
     const removeTableWidth = document.getElementById("removeTableWidth");
     const removeElementWidth = document.getElementById("removeElementWidth");
+    const removeEmptyElements = document.getElementById("removeEmptyElements");
     const globalRemoveClass = document.getElementById("globalRemoveClass");
     const globalRemoveStyle = document.getElementById("globalRemoveStyle");
     const globalRemoveTable = document.getElementById("globalRemoveTable");
@@ -38,14 +41,19 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // 历史记录相关函数
     function saveState() {
-        const state = previewContainer.innerHTML;
+        const state = getPreviewContent();
         // 删除之后的历史记录
         operationHistory = operationHistory.slice(0, currentHistoryIndex + 1);
         operationHistory.push(state);
         currentHistoryIndex = operationHistory.length - 1;
-        htmlInput.value = state;
 
         // 更新撤销/前进按钮状态
+        updateHistoryButtonState();
+    }
+
+    function resetHistoryToCurrent() {
+        operationHistory = [getPreviewContent()];
+        currentHistoryIndex = 0;
         updateHistoryButtonState();
     }
 
@@ -67,7 +75,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
     function applyState(state) {
         previewContainer.innerHTML = state;
-        htmlInput.value = state;
+        previewContainer.appendChild(copyBtn);
+        syncOutputFromPreview();
     }
 
     function updateHistoryButtonState() {
@@ -93,13 +102,11 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // 元素高亮相关函数
     function addHighlight(element) {
-        element.style.outline = "2px solid #007bff";
-        element.style.backgroundColor = "rgba(0, 123, 255, 0.1)";
+        element.classList.add("selected-highlight");
     }
 
     function removeHighlight(element) {
-        element.style.outline = "";
-        element.style.backgroundColor = "";
+        element.classList.remove("selected-highlight");
     }
 
     function clearAllHighlights() {
@@ -124,6 +131,84 @@ document.addEventListener("DOMContentLoaded", function () {
         const looksLikeHtml = /<\/?[a-z][\w:-]*(\s|>|\/)/i.test(textContent);
 
         return hasEscapedTags && looksLikeHtml ? textContent : html;
+    }
+
+    function removeEmptyElementsFrom(root) {
+        const ignoredTags = new Set(["table", "thead", "tbody", "tfoot", "tr", "td", "th", "colgroup", "col", "br", "hr", "img", "input", "textarea", "button"]);
+        const elements = Array.from(root.querySelectorAll("*")).reverse();
+
+        elements.forEach((element) => {
+            const tagName = element.tagName.toLowerCase();
+            const hasContent = element.textContent.replace(/\u00a0/g, "").trim() !== "";
+            const hasMeaningfulChild = element.querySelector("img, input, textarea, button, table, hr, br");
+
+            if (!ignoredTags.has(tagName) && !hasContent && !hasMeaningfulChild) {
+                element.remove();
+            }
+        });
+    }
+
+    function escapeText(text) {
+        const span = document.createElement("span");
+        span.textContent = text;
+        return span.innerHTML.replace(/\u00a0/g, "&nbsp;");
+    }
+
+    function formatAttributes(element) {
+        return Array.from(element.attributes)
+            .map((attr) => `${attr.name}="${attr.value.replace(/"/g, "&quot;")}"`)
+            .join(" ");
+    }
+
+    function formatHtml(html) {
+        const wrapper = document.createElement("div");
+        wrapper.innerHTML = html;
+        const voidTags = new Set(["area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr"]);
+        const lines = [];
+
+        function formatNode(node, depth) {
+            const indent = "  ".repeat(depth);
+
+            if (node.nodeType === Node.TEXT_NODE) {
+                const text = node.textContent.replace(/\s+/g, " ").trim();
+                if (text) {
+                    lines.push(`${indent}${escapeText(text)}`);
+                }
+                return;
+            }
+
+            if (node.nodeType !== Node.ELEMENT_NODE) {
+                return;
+            }
+
+            const tagName = node.tagName.toLowerCase();
+            const attributes = formatAttributes(node);
+            const openTag = attributes ? `<${tagName} ${attributes}>` : `<${tagName}>`;
+
+            if (voidTags.has(tagName)) {
+                lines.push(`${indent}${openTag}`);
+                return;
+            }
+
+            lines.push(`${indent}${openTag}`);
+            Array.from(node.childNodes).forEach((child) => formatNode(child, depth + 1));
+            lines.push(`${indent}</${tagName}>`);
+        }
+
+        Array.from(wrapper.childNodes).forEach((node) => formatNode(node, 0));
+        return lines.join("\n");
+    }
+
+    function setPreviewHtml(html, shouldSyncOutput = true) {
+        previewContainer.innerHTML = html;
+        previewContainer.appendChild(copyBtn);
+        if (shouldSyncOutput) {
+            syncOutputFromPreview();
+        }
+    }
+
+    function syncOutputFromPreview() {
+        htmlOutput.value = formatHtml(getPreviewContent());
     }
 
     // 元素选择与高亮
@@ -175,33 +260,16 @@ document.addEventListener("DOMContentLoaded", function () {
     deleteTableBtn.addEventListener("click", function () {
         if (selectedElements.length > 0) {
             saveState();
-            selectedElements.forEach((element) => {
-                if (element.closest("table")) {
-                    const table = element.closest("table");
-                    const tableContent = document.createElement("div");
-                    const rows = table.getElementsByTagName("tr");
-
-                    Array.from(rows).forEach((row) => {
-                        const rowDiv = document.createElement("div");
-                        const cells = row.children;
-
-                        Array.from(cells).forEach((cell) => {
-                            const cellDiv = document.createElement("span");
-                            cellDiv.innerHTML = cell.innerHTML;
-                            rowDiv.appendChild(cellDiv);
-                        });
-
-                        tableContent.appendChild(rowDiv);
-                    });
-
-                    table.parentNode.replaceChild(tableContent, table);
-
-                    // 更新选中元素
-                    const index = selectedElements.indexOf(element);
-                    selectedElements[index] = tableContent;
-                    addHighlight(tableContent);
-                }
+            const tables = Array.from(new Set(selectedElements.map((element) => element.closest("table")).filter(Boolean)));
+            const convertedTables = tables.map((table) => {
+                const tableContent = convertTableToDiv(table);
+                addHighlight(tableContent);
+                return tableContent;
             });
+            selectedElements = convertedTables;
+            elementActions.style.display = selectedElements.length > 0 ? "block" : "none";
+            syncOutputFromPreview();
+            saveState();
         }
     });
 
@@ -220,6 +288,8 @@ document.addEventListener("DOMContentLoaded", function () {
                 selectedElements[index] = newElement;
                 addHighlight(newElement);
             });
+            syncOutputFromPreview();
+            saveState();
         }
     });
 
@@ -273,6 +343,8 @@ document.addEventListener("DOMContentLoaded", function () {
                 }
                 addHighlight(element);
             });
+            syncOutputFromPreview();
+            saveState();
         }
     });
 
@@ -285,6 +357,8 @@ document.addEventListener("DOMContentLoaded", function () {
             });
             selectedElements = [];
             elementActions.style.display = "none";
+            syncOutputFromPreview();
+            saveState();
         }
     });
 
@@ -296,6 +370,8 @@ document.addEventListener("DOMContentLoaded", function () {
                 element.style.textAlign = "left";
                 addHighlight(element);
             });
+            syncOutputFromPreview();
+            saveState();
         }
     });
 
@@ -306,6 +382,8 @@ document.addEventListener("DOMContentLoaded", function () {
                 element.style.textAlign = "center";
                 addHighlight(element);
             });
+            syncOutputFromPreview();
+            saveState();
         }
     });
 
@@ -316,6 +394,8 @@ document.addEventListener("DOMContentLoaded", function () {
                 element.style.textAlign = "right";
                 addHighlight(element);
             });
+            syncOutputFromPreview();
+            saveState();
         }
     });
 
@@ -326,7 +406,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
         // 根据用户选择处理HTML元素
         if (globalRemoveClass.checked || globalRemoveStyle.checked || removeBorder.checked || removeTableWidth.checked || globalRemoveTable.checked) {
-            const elements = tempDiv.getElementsByTagName("*");
+            const elements = Array.from(tempDiv.getElementsByTagName("*"));
 
             for (let i = 0; i < elements.length; i++) {
                 const element = elements[i];
@@ -384,6 +464,10 @@ document.addEventListener("DOMContentLoaded", function () {
             removeInlineStyles(tempDiv);
         }
 
+        if (removeEmptyElements.checked) {
+            removeEmptyElementsFrom(tempDiv);
+        }
+
         return tempDiv.innerHTML;
     }
 
@@ -406,13 +490,14 @@ document.addEventListener("DOMContentLoaded", function () {
         });
 
         table.parentNode.replaceChild(tableContent, table);
+        return tableContent;
     }
 
     // 监听输入变化
     htmlInput.addEventListener("input", function () {
         const processedHtml = processHtml(htmlInput.value);
-        previewContainer.innerHTML = processedHtml;
-        previewContainer.appendChild(copyBtn); // 确保复制按钮始终在预览区
+        setPreviewHtml(processedHtml);
+        resetHistoryToCurrent();
     });
 
     // 添加粘贴事件处理函数
@@ -437,8 +522,7 @@ document.addEventListener("DOMContentLoaded", function () {
         this.value = textBefore + pastedData + textAfter;
         // 更新预览
         const processedHtml = processHtml(this.value);
-        previewContainer.innerHTML = processedHtml;
-        previewContainer.appendChild(copyBtn); // 确保复制按钮存在
+        setPreviewHtml(processedHtml);
 
         // 如果是表格内容，确保表格显示边框
         if (pastedData.includes("<table") && !removeBorder.checked) {
@@ -448,6 +532,8 @@ document.addEventListener("DOMContentLoaded", function () {
         if (globalRemoveStyle.checked) {
             removeInlineStyles(previewContainer);
         }
+        syncOutputFromPreview();
+        resetHistoryToCurrent();
     }
 
     // 确保所有表格有边框的函数
@@ -472,15 +558,15 @@ document.addEventListener("DOMContentLoaded", function () {
     htmlInput.addEventListener("paste", handlePasteEvent);
 
     // 监听全局设置变化
-    const settingInputs = [globalRemoveClass, globalRemoveStyle, removeBorder, removeTableWidth, globalRemoveTable, targetTags, preserveContent];
+    const settingInputs = [globalRemoveClass, globalRemoveStyle, removeBorder, removeTableWidth, removeEmptyElements, globalRemoveTable, targetTags, preserveContent];
 
     settingInputs.forEach((input) => {
         const eventType = input.type === "text" ? "input" : "change";
         input.addEventListener(eventType, function () {
             if (htmlInput.value) {
                 const processedHtml = processHtml(htmlInput.value);
-                previewContainer.innerHTML = processedHtml;
-                previewContainer.appendChild(copyBtn);
+                setPreviewHtml(processedHtml);
+                resetHistoryToCurrent();
             }
         });
     });
@@ -500,7 +586,13 @@ document.addEventListener("DOMContentLoaded", function () {
     previewContainer.addEventListener("input", function (e) {
         if (e.target !== copyBtn) {
             saveState();
+            syncOutputFromPreview();
         }
+    });
+
+    htmlOutput.addEventListener("input", function () {
+        setPreviewHtml(htmlOutput.value, false);
+        resetHistoryToCurrent();
     });
 
     function getPreviewContent() {
@@ -513,6 +605,13 @@ document.addEventListener("DOMContentLoaded", function () {
         if (tempCopyBtn) {
             tempCopyBtn.remove();
         }
+
+        tempContainer.querySelectorAll(".selected-highlight").forEach((element) => {
+            element.classList.remove("selected-highlight");
+            if (element.getAttribute("class") === "") {
+                element.removeAttribute("class");
+            }
+        });
 
         if (globalRemoveStyle.checked) {
             removeInlineStyles(tempContainer);
@@ -541,45 +640,56 @@ document.addEventListener("DOMContentLoaded", function () {
             navigator.clipboard
                 .write([clipboardItem])
                 .then(() => {
-                    showCopySuccess();
+                    showCopySuccess(copyBtn);
                 })
                 .catch((err) => {
                     console.error("复制失败:", err);
-                    fallbackCopy(content);
+                    fallbackCopy(content, copyBtn);
                 });
         } else {
-            fallbackCopy(content);
+            fallbackCopy(content, copyBtn);
         }
     });
 
+    copyOutputBtn.addEventListener("click", function () {
+        const content = htmlOutput.value.trim();
+
+        if (!content) {
+            console.warn("复制失败: 修改后的HTML为空");
+            return;
+        }
+
+        fallbackCopy(content, copyOutputBtn);
+    });
+
     // 复制成功反馈
-    function showCopySuccess() {
-        const originalText = copyBtn.textContent;
-        copyBtn.textContent = "复制成功！";
+    function showCopySuccess(button) {
+        const originalText = button.textContent;
+        button.textContent = "复制成功！";
         setTimeout(() => {
-            copyBtn.textContent = originalText;
+            button.textContent = originalText;
         }, 2000);
     }
 
     // 后备复制方法
-    function fallbackCopy(content) {
+    function fallbackCopy(content, button) {
         if (navigator.clipboard && navigator.clipboard.writeText) {
             navigator.clipboard
                 .writeText(content)
                 .then(() => {
-                    showCopySuccess();
+                    showCopySuccess(button);
                 })
                 .catch((err) => {
                     console.error("文本复制失败，使用后备方案:", err);
-                    copyWithSelection(content);
+                    copyWithSelection(content, button);
                 });
             return;
         }
 
-        copyWithSelection(content);
+        copyWithSelection(content, button);
     }
 
-    function copyWithSelection(content) {
+    function copyWithSelection(content, button) {
         const textarea = document.createElement("textarea");
         textarea.value = content;
         textarea.setAttribute("readonly", "");
@@ -592,7 +702,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
         try {
             document.execCommand("copy");
-            showCopySuccess();
+            showCopySuccess(button);
         } catch (err) {
             console.error("复制失败:", err);
         }
