@@ -503,10 +503,7 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     });
 
-    // 添加复制按钮事件监听
-    copyBtn.addEventListener("click", function (e) {
-        e.stopPropagation(); // 阻止事件冒泡到previewContainer
-
+    function getPreviewContent() {
         // 临时创建一个容器来获取HTML，避免包含复制按钮
         const tempContainer = document.createElement("div");
         tempContainer.innerHTML = previewContainer.innerHTML;
@@ -521,12 +518,26 @@ document.addEventListener("DOMContentLoaded", function () {
             removeInlineStyles(tempContainer);
         }
 
-        const content = tempContainer.innerHTML;
+        return tempContainer.innerHTML.trim();
+    }
+
+    // 添加复制按钮事件监听
+    copyBtn.addEventListener("click", function (e) {
+        e.stopPropagation(); // 阻止事件冒泡到previewContainer
+
+        const content = getPreviewContent();
+
+        if (!content) {
+            console.warn("复制失败: 预览内容为空");
+            return;
+        }
 
         // 尝试使用现代API复制
         if (navigator.clipboard && window.ClipboardItem) {
-            const blob = new Blob([content], {type: "text/html"});
-            const clipboardItem = new ClipboardItem({"text/html": blob});
+            const clipboardItem = new ClipboardItem({
+                "text/html": new Blob([content], {type: "text/html;charset=utf-8"}),
+                "text/plain": new Blob([content], {type: "text/plain;charset=utf-8"}),
+            });
             navigator.clipboard
                 .write([clipboardItem])
                 .then(() => {
@@ -552,9 +563,31 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // 后备复制方法
     function fallbackCopy(content) {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard
+                .writeText(content)
+                .then(() => {
+                    showCopySuccess();
+                })
+                .catch((err) => {
+                    console.error("文本复制失败，使用后备方案:", err);
+                    copyWithSelection(content);
+                });
+            return;
+        }
+
+        copyWithSelection(content);
+    }
+
+    function copyWithSelection(content) {
         const textarea = document.createElement("textarea");
         textarea.value = content;
+        textarea.setAttribute("readonly", "");
+        textarea.style.position = "fixed";
+        textarea.style.left = "-9999px";
+        textarea.style.top = "0";
         document.body.appendChild(textarea);
+        textarea.focus();
         textarea.select();
 
         try {
