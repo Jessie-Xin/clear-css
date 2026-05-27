@@ -107,6 +107,25 @@ document.addEventListener("DOMContentLoaded", function () {
         selectedElements = [];
     }
 
+    function removeInlineStyles(root) {
+        if (root.hasAttribute && root.hasAttribute("style")) {
+            root.removeAttribute("style");
+        }
+        root.querySelectorAll("[style]").forEach((element) => {
+            element.removeAttribute("style");
+        });
+    }
+
+    function unwrapEscapedHtml(html) {
+        const wrapper = document.createElement("div");
+        wrapper.innerHTML = html;
+        const textContent = wrapper.textContent.trim();
+        const hasEscapedTags = html.includes("&lt;") || html.includes("&gt;");
+        const looksLikeHtml = /<\/?[a-z][\w:-]*(\s|>|\/)/i.test(textContent);
+
+        return hasEscapedTags && looksLikeHtml ? textContent : html;
+    }
+
     // 元素选择与高亮
     previewContainer.addEventListener("mouseover", function (e) {
         const hoveredElement = e.target;
@@ -249,6 +268,9 @@ document.addEventListener("DOMContentLoaded", function () {
                         }
                     }
                 }
+                if (removeStyle.checked) {
+                    removeInlineStyles(element);
+                }
                 addHighlight(element);
             });
         }
@@ -300,7 +322,7 @@ document.addEventListener("DOMContentLoaded", function () {
     // 处理HTML函数
     function processHtml(html) {
         const tempDiv = document.createElement("div");
-        tempDiv.innerHTML = html;
+        tempDiv.innerHTML = unwrapEscapedHtml(html);
 
         // 根据用户选择处理HTML元素
         if (globalRemoveClass.checked || globalRemoveStyle.checked || removeBorder.checked || removeTableWidth.checked || globalRemoveTable.checked) {
@@ -356,6 +378,10 @@ document.addEventListener("DOMContentLoaded", function () {
                     }
                 }
             }
+        }
+
+        if (globalRemoveStyle.checked) {
+            removeInlineStyles(tempDiv);
         }
 
         return tempDiv.innerHTML;
@@ -417,6 +443,10 @@ document.addEventListener("DOMContentLoaded", function () {
         // 如果是表格内容，确保表格显示边框
         if (pastedData.includes("<table") && !removeBorder.checked) {
             ensureTableBorders();
+        }
+
+        if (globalRemoveStyle.checked) {
+            removeInlineStyles(previewContainer);
         }
     }
 
@@ -485,6 +515,10 @@ document.addEventListener("DOMContentLoaded", function () {
         const tempCopyBtn = tempContainer.querySelector("#copyBtn");
         if (tempCopyBtn) {
             tempCopyBtn.remove();
+        }
+
+        if (globalRemoveStyle.checked) {
+            removeInlineStyles(tempContainer);
         }
 
         const content = tempContainer.innerHTML;
